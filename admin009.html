@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Касса 009 · Админ</title>
+<!--
+  КАССА 009 · АДМИН-ПАНЕЛЬ 1.1 · для GitHub Pages
+  Функции базы: правки 29 (вход, права, люди), 30 (запись, лист),
+  26 (рубильник), 27 (операторы лайков), 28 (сверка заявок).
+  Открыть с ?demo=1 — просмотр без базы, данные выдуманные.
+  Ключ ниже — публичный anon, тот же, что в приложении. Без токена
+  админа он не открывает ничего: каждая функция панели проверяет вход.
+  Токен живёт только в памяти вкладки — перезагрузил, вошёл заново.
+-->
+<style>
+:root{
+  --bg:#0e1014;--card:#171a21;--card2:#1d212a;--line:#272c37;--txt:#e8eaef;--mut:#8a909c;
+  --acc:#4a9eff;--ok:#36d07d;--ok-bg:rgba(54,208,125,.13);--bad:#ff6b6b;--bad-bg:rgba(255,107,107,.13);
+  --warn:#f5b84a;--warn-bg:rgba(245,184,74,.13);--r:14px
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--txt)}
+body{font:15px/1.45 -apple-system,"Segoe UI",Roboto,sans-serif;padding:0 14px 90px;max-width:620px;margin:auto}
+h1{font-size:19px;margin:18px 0 4px}h2{font-size:15px;margin:0 0 10px}
+.mut{color:var(--mut);font-size:13px}.small{font-size:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;margin:12px 0}
+label{display:block;font-size:12px;color:var(--mut);margin:10px 0 4px}
+input,select{width:100%;padding:11px 12px;background:#0f1218;border:1px solid var(--line);border-radius:10px;color:var(--txt);font-size:16px}
+input:focus,select:focus{outline:2px solid var(--acc);outline-offset:-1px}
+button{font:inherit;border:0;border-radius:10px;padding:11px 14px;cursor:pointer;background:var(--acc);color:#fff;font-weight:600}
+button.sec{background:var(--card2);color:var(--txt);border:1px solid var(--line)}
+button.bad{background:#4a2326;color:#ffb3b3}button.wide{width:100%;margin-top:12px}
+button.sure{background:var(--bad);color:#fff}
+button:disabled{opacity:.5;cursor:default}
+.row{display:flex;align-items:center;gap:10px}.sp{flex:1}
+.pill{display:inline-block;font-size:11px;padding:2px 8px;border-radius:20px;font-weight:600;vertical-align:1px}
+.p-ok{background:var(--ok-bg);color:var(--ok)}.p-bad{background:var(--bad-bg);color:var(--bad)}
+.p-warn{background:var(--warn-bg);color:var(--warn)}.p-mut{background:var(--card2);color:var(--mut)}
+.err{color:var(--bad);font-size:13px;margin-top:8px;min-height:18px}.okm{color:var(--ok);font-size:13px;margin-top:8px}
+.demo{position:sticky;top:0;z-index:5;margin:0 -14px;padding:8px 14px;background:#3a2c07;color:#ffd77a;font-size:12px;text-align:center;border-bottom:1px solid #5a4410}
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:4;display:flex;justify-content:center;background:rgba(14,16,20,.96);border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
+.tabs button{flex:1;max-width:104px;background:none;color:var(--mut);font-size:11px;font-weight:500;padding:6px 2px;border-radius:8px}
+.tabs button b{display:block;font-size:18px;line-height:1.2;font-weight:400}
+.tabs button.on{color:var(--txt);background:var(--card2)}
+.tabs .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--bad);margin-left:3px;vertical-align:2px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:12px}
+.tile .k{font-size:12px;color:var(--mut)}.tile .v{font-size:22px;font-weight:700;margin-top:2px;font-variant-numeric:tabular-nums}
+.tile.ok{border-color:rgba(54,208,125,.35)}.tile.bad{border-color:rgba(255,107,107,.5);background:#1e1416}
+.tile.warn{border-color:rgba(245,184,74,.45)}
+.line{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.line:last-child{border-bottom:0}.line .r{text-align:right;font-variant-numeric:tabular-nums}
+.who{padding:11px 0;border-bottom:1px solid var(--line)}.who:last-child{border-bottom:0}
+.who .nm{font-weight:600}.who .meta{font-size:12px;color:var(--mut);margin-top:2px}
+.who.off .nm{color:var(--mut);text-decoration:line-through}
+.sw{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line)}
+.sw:last-child{border-bottom:0}
+.tg{position:relative;width:52px;height:30px;border-radius:30px;background:#3a3f4b;border:0;padding:0;flex:none}
+.tg::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:left .15s}
+.tg.on{background:var(--ok)}.tg.on::after{left:25px}.tg.dim{opacity:.4}
+.log{padding:9px 0;border-bottom:1px solid var(--line);font-size:13px}.log:last-child{border-bottom:0}
+.log .t{color:var(--mut);font-size:12px}.log b{font-weight:600}
+.note{font-size:12px;color:var(--mut);background:var(--card2);border-radius:10px;padding:10px;margin-top:10px;line-height:1.5}
+.hide{display:none!important}
+.toast{position:fixed;left:50%;bottom:calc(74px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);opacity:0;z-index:9;max-width:92%;background:#2a2f3a;color:var(--txt);border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:14px;transition:.18s;pointer-events:none;text-align:center}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}.toast.bad{background:#3a1d20;border-color:#6a2a2f;color:#ffc2c2}
+.big{font-size:28px;font-weight:700;font-variant-numeric:tabular-nums}
+</style><style>
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.chip{font-size:13px;padding:7px 11px;border-radius:20px;background:var(--card2);border:1px solid var(--line);color:var(--mut);font-weight:500}
+.chip.on{background:rgba(74,158,255,.16);border-color:rgba(74,158,255,.55);color:#cfe4ff}
+.chip.on::before{content:"✓ ";font-weight:700}
+.grp{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin:14px 0 2px}
+.prava{font-size:12px;color:var(--mut);margin-top:3px;line-height:1.4}
+.sel{display:flex;gap:6px;margin-top:8px}.sel button{flex:1;padding:8px 6px;font-size:13px}
+</style>
+</head>
+<body>
+<div id="demoBar" class="demo hide">ПРОСМОТР · данные выдуманные · в базу ничего не уходит<br>вход: <b>admin</b> / <b>демо123</b></div>
+
+<section id="scrLogin">
+  <h1>Касса 009 · Админ</h1>
+  <div class="mut">Вход только для тех, у кого галочка «Админ-панель»</div>
+  <div class="card">
+    <label for="lg">Логин</label>
+    <input id="lg" autocomplete="username" autocapitalize="off" spellcheck="false">
+    <label for="pw">Пароль</label>
+    <input id="pw" type="password" autocomplete="current-password">
+    <button class="wide" id="btnLogin">Войти</button>
+    <div id="lgErr" class="err"></div>
+  </div>
+  <div class="note">Пять неверных паролей подряд — вход запирается на 15 минут. Снять блокировку может другой администратор.</div>
+</section>
+
+<section id="scrPanel" class="hide">
+  <div class="row" style="margin-top:16px">
+    <div><h1 style="margin:0" id="title">Здоровье</h1><div class="mut small">вошёл: <b id="who"></b></div></div>
+    <div class="sp"></div>
+    <button class="sec" id="btnOut" style="padding:8px 12px">Выйти</button>
+  </div>
+
+  <div id="tabZd">
+    <div class="grid" style="margin-top:12px">
+      <div class="tile" id="tFarqR"><div class="k">Фарқ ₽</div><div class="v" id="vFarqR">—</div></div>
+      <div class="tile" id="tFarqU"><div class="k">Фарқ $</div><div class="v" id="vFarqU">—</div></div>
+    </div>
+    <div class="mut small" style="margin-top:6px">Тревога от 1 ₽, не от нуля: копеечный хвост — предел точности партий, а не потеря.</div>
+    <div class="card">
+      <h2>Запись и лист</h2>
+      <div class="line"><span>Режим записи</span><span class="r" id="sMode">—</span></div>
+      <div class="line"><span>Прямо в базу сегодня</span><span class="r" id="sPryamo">—</span></div>
+      <div class="line"><span>Ждут переноса на лист</span><span class="r" id="sList">—</span></div>
+      <div class="line"><span>Последняя запись</span><span class="r" id="sLast">—</span></div>
+      <div class="line"><span>Операций сегодня</span><span class="r" id="sToday">—</span></div>
+    </div>
+    <div class="card">
+      <h2>Заявки</h2>
+      <div class="line"><span>Не выдано</span><span class="r" id="zNe">—</span></div>
+      <div class="line"><span>По статусу заявок</span><span class="r" id="zSt">—</span></div>
+      <div class="line"><span>Расхождение</span><span class="r" id="zRas">—</span></div>
+      <div class="line"><span>Статус врёт, деньги выданы</span><span class="r" id="zVisit">—</span></div>
+      <div class="line"><span>Закрыта, а деньги не выданы</span><span class="r" id="zZakr">—</span></div>
+      <div id="zFix" class="hide">
+        <button class="wide sec" id="btnFix">Выправить статусы</button>
+        <div class="mut small" style="margin-top:6px">Меняет только поле статуса там, где деньги уже сошлись. Суммы не трогает.</div>
+      </div>
+    </div>
+    <div class="card" id="cDolgo"><h2>Висят дольше трёх дней</h2><div id="dolgo"></div></div>
+    <div class="card">
+      <h2>Вход</h2>
+      <div class="line"><span>Заперто логинов</span><span class="r" id="sLocked">—</span></div>
+    </div>
+    <button class="wide sec" id="btnRefresh">Обновить</button>
+  </div>
+
+  <div id="tabLu" class="hide">
+    <div class="card"><div id="users"></div></div>
+    <button class="wide" id="btnNew">+ Новый человек</button>
+    <div class="card hide" id="fUser">
+      <h2 id="fTitle">Новый человек</h2>
+      <label>Логин — тот же, что в приложении</label><input id="fLogin" autocapitalize="off" spellcheck="false">
+      <label>Имя — так он подписывает операции</label><input id="fName">
+      <label>Набор прав</label>
+      <select id="fSet"></select>
+      <div class="mut small" id="fSetHint" style="margin-top:4px"></div>
+      <div id="fRights"></div>
+      <label id="lPass">Пароль</label>
+      <input id="fPass" type="password" autocomplete="new-password">
+      <label>Пароль ещё раз</label>
+      <input id="fPass2" type="password" autocomplete="new-password">
+      <div class="mut small" style="margin-top:6px" id="hPass"></div>
+      <button class="wide" id="btnSave">Сохранить</button>
+      <button class="wide sec hide" id="btnKick">Выкинуть со всех телефонов</button>
+      <button class="wide sec" id="btnCancel">Отмена</button>
+      <div id="fMsg" class="err"></div>
+    </div>
+    <div class="note">Пока приложение входит через Apps Script, ставь здесь <b>тот же пароль</b>, что у человека сейчас: тогда при следующем входе телефон получит и пропуск в базу. Нет пароля в базе — приложение работает как раньше, через журнал.<br><br>Удаления нет — только выключение: исчезнет человек, исчезнет и доказательство, чьи были операции.</div>
+  </div>
+
+  <div id="tabLk" class="hide">
+    <div class="card"><div id="ops"></div></div>
+    <div class="card">
+      <h2>Добавить оператора лайков</h2>
+      <label>Telegram id</label><input id="oId" inputmode="numeric" placeholder="например 558794765">
+      <label>Имя — на него ляжет выдача</label><input id="oName" placeholder="ровно как графа в базе">
+      <button class="wide" id="btnOp">Добавить</button>
+      <div id="oMsg" class="err"></div>
+      <div class="note">Имя — это счёт. «Тохир» и «Тохир Касса» — два разных счёта. Если оператора нет в списке, бот в группе сам напишет его id в отказе.</div>
+    </div>
+  </div>
+
+  <div id="tabWm" class="hide">
+    <div class="card">
+      <h2>Куда пишет касса</h2>
+      <div class="sw">
+        <div><b>Общий рубильник</b><div class="mut small" id="wmMainHint"></div></div>
+        <button class="tg" id="wmMain"></button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>По разделам</h2>
+      <div class="mut small" style="margin-bottom:4px" id="wmHint"></div>
+      <div id="wmActs"></div>
+    </div>
+    <div class="note">Включать — по одному разделу, и смотреть сутки: фарқ, «ждут переноса на лист», сверку. Выключать — общим рубильником, одним касанием: он перекрывает всё. Выключенный раздел база сама отсылает в журнал, даже если телефон ещё не перечитал настройку. Каждое переключение — в журнал.</div>
+  </div>
+
+  <div id="tabLg" class="hide"><div class="card"><div id="log"></div></div></div>
+
+  <div id="tabMs" class="hide">
+    <div class="card">
+      <h2>Закрытие месяца</h2>
+      <div class="mut">Подключается отдельной правкой. Пока — из приложения, как раньше.</div>
+      <div class="note">Здесь будет: прогон с итогами · оба фарқ до и после · запись вторым нажатием и вводом названия месяца · кто и когда закрывал · запрет повторного закрытия.</div>
+    </div>
+  </div>
+</section>
+
+<div class="toast" id="toast"></div>
+<nav class="tabs hide" id="tabs">
+  <button data-t="Zd" class="on"><b>◉</b>Здоровье<span class="dot hide" id="dotZd"></span></button>
+  <button data-t="Lu"><b>☺</b>Люди</button>
+  <button data-t="Lk"><b>👍</b>Лайки</button>
+  <button data-t="Wm"><b>⇄</b>Запись</button>
+  <button data-t="Lg"><b>≡</b>Журнал</button>
+  <button data-t="Ms"><b>◷</b>Месяц</button>
+</nav>
+<script>
+'use strict';
+// ================================================================
+//  НАСТРОЙКА
+// ================================================================
+const ДЕМО = /[?&]demo=1\b/.test(location.search);
+const SB   = 'https://lyxxbonoycdsulralmfg.supabase.co';
+const KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx5eHhib25veWNkc3VscmFsbWZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgxNzcyNTAsImV4cCI6MjEwMzc1MzI1MH0.bHKwEj7z94RKlPGGFGn6vB6W3Nlu99-psz9wvFefRis';
+const ВЕРСИЯ = 'панель 1.1';
+const НОВАЯ_ВЕРСИЯ = 'R 2.1';          // с неё приложение пишет прямо в базу
+// ================================================================
+
+let ТОКЕН = '';
+let Я = '';
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g,
+  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const деньги = n => (Math.round(Number(n || 0) * 100) / 100)
+  .toLocaleString('ru-RU', {minimumFractionDigits: 0, maximumFractionDigits: 2});
+function давно(iso) {
+  if (!iso) return 'никогда';
+  const м = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+  if (м < 1) return 'только что';
+  if (м < 60) return м + ' мин назад';
+  const ч = Math.round(м / 60);
+  if (ч < 24) return ч + ' ч назад';
+  return Math.round(ч / 24) + ' дн назад';
+}
+
+// ================================================================
+//  ПРАВА — тот же список и те же наборы, что в базе (правка 29)
+// ================================================================
+const ПРАВА = [
+  ['Экраны',     [['uzb','УЗБ'],['msk','МСК'],['d','ПЕР ₽'],['kos','ПЕР $'],['report','Отчёт'],['kazok','Казахстан']]],
+  ['Действия',   [['write','Записывать'],['cancel','Отменять'],['edit','Править'],['redate','Задним числом'],['checks','Галочки «проверено»']]],
+  ['Управление', [['month','Закрывать месяц'],['admin','Админ-панель']]]
+];
+const ВСЕ = ПРАВА.flatMap(г => г[1].map(п => п[0]));
+const ИМЯ_ПРАВА = Object.fromEntries(ПРАВА.flatMap(г => г[1]));
+const НАБОРЫ = {
+  operator: ['Оператор',       ['uzb','msk','d','kos','report','write']],
+  report:   ['Только смотрит', ['uzb','msk','d','kos','report']],
+  kazok:    ['Казок',          ['kazok','write']],
+  admin:    ['Админ',          ВСЕ]
+};
+const равно = (a, b) => a.length === b.length && a.every(x => b.includes(x));
+const какойНабор = п => Object.keys(НАБОРЫ).find(k => равно(НАБОРЫ[k][1], п)) || null;
+
+// ================================================================
+//  СВЯЗЬ С БАЗОЙ
+// ================================================================
+async function rpc(fn, args) {
+  if (ДЕМО) { await new Promise(r => setTimeout(r, 150)); return демо(fn, args || {}); }
+  let r, t;
+  try {
+    r = await fetch(SB + '/rest/v1/rpc/' + fn, {
+      method: 'POST',
+      headers: { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json',
+                 'Content-Profile': 'k009', 'Accept-Profile': 'k009' },
+      body: JSON.stringify(args || {})
+    });
+    t = await r.text();
+  } catch (e) {
+    return { ok: false, error: 'Нет связи с базой. Ничего не записано — проверь и повтори.' };
+  }
+  let j;
+  try { j = t ? JSON.parse(t) : null; }
+  catch (e) { return { ok: false, error: 'База ответила не JSON: ' + t.slice(0, 80) }; }
+  if (!r.ok) return { ok: false, error: (j && (j.message || j.error)) || ('Ошибка ' + r.status) };
+  return j;
+}
+let _тт;
+function тост(текст, плохо) {
+  const t = $('toast'); t.textContent = текст || 'Ошибка';
+  t.className = 'toast on' + (плохо ? ' bad' : '');
+  clearTimeout(_тт); _тт = setTimeout(() => t.className = 'toast', 3200);
+}
+function подтвердить(btn, текст, делать) {
+  if (btn.dataset.sure === '1') { btn.dataset.sure = ''; btn.classList.remove('sure'); btn.textContent = btn.dataset.was; return делать(); }
+  btn.dataset.was = btn.textContent; btn.dataset.sure = '1'; btn.classList.add('sure'); btn.textContent = текст;
+  setTimeout(() => { if (btn.dataset.sure === '1') { btn.dataset.sure = ''; btn.classList.remove('sure'); btn.textContent = btn.dataset.was; } }, 4000);
+}
+function второеНажатие(btn, цвет, делать) {
+  if (btn.dataset.sure === '1') { btn.dataset.sure = ''; btn.style.outline = ''; return делать(); }
+  btn.dataset.sure = '1'; btn.style.outline = '2px solid ' + цвет;
+  setTimeout(() => { btn.dataset.sure = ''; btn.style.outline = ''; }, 3000);
+}
+
+// ================================================================
+//  ВХОД
+// ================================================================
+$('btnLogin').onclick = вход;
+$('pw').onkeydown = e => { if (e.key === 'Enter') вход(); };
+async function вход() {
+  const b = $('btnLogin'); b.disabled = true; $('lgErr').textContent = '';
+  const r = await rpc('login', { p_login: $('lg').value.trim(), p_pass: $('pw').value, p_ver: ВЕРСИЯ });
+  b.disabled = false;
+  if (!r || !r.ok) { $('lgErr').textContent = (r && r.error) || 'Ошибка'; return; }
+  if (!(r.rights || []).includes('admin')) { $('lgErr').textContent = 'Нет галочки «Админ-панель»'; return; }
+  ТОКЕН = r.token; Я = $('lg').value.trim(); $('pw').value = '';
+  $('who').textContent = r.name || Я;
+  $('scrLogin').classList.add('hide'); $('scrPanel').classList.remove('hide'); $('tabs').classList.remove('hide');
+  вкладка('Zd');
+}
+$('btnOut').onclick = () => {
+  ТОКЕН = ''; $('scrPanel').classList.add('hide'); $('tabs').classList.add('hide'); $('scrLogin').classList.remove('hide');
+};
+function отказ(r) {
+  if (r && (r.error === 'Токен не подошёл' || r.error === 'Срок токена истёк')) {
+    $('btnOut').onclick(); $('lgErr').textContent = 'Сессия кончилась, войди заново'; return true;
+  }
+  return false;
+}
+
+// ================================================================
+//  ВКЛАДКИ
+// ================================================================
+const ВКЛ = { Zd: 'Здоровье', Lu: 'Люди', Lk: 'Операторы лайков', Wm: 'Запись', Lg: 'Журнал', Ms: 'Месяц' };
+document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => вкладка(b.dataset.t));
+function вкладка(t) {
+  Object.keys(ВКЛ).forEach(k => $('tab' + k).classList.toggle('hide', k !== t));
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
+  $('title').textContent = ВКЛ[t]; window.scrollTo(0, 0);
+  ({ Zd: здоровье, Lu: люди, Lk: лайки, Wm: запись, Lg: журнал })[t]?.();
+}
+
+// ================================================================
+//  ЗДОРОВЬЕ
+// ================================================================
+const РАЗДЕЛЫ = [['кос','ПЕР $'],['д','ПЕР ₽'],['мск','МСК'],['олдим','Олдим (Рес)'],['перевод','Перевод (Смс)']];
+$('btnRefresh').onclick = здоровье;
+async function здоровье() {
+  const r = await rpc('adm_zdorovie', { p_token: ТОКЕН });
+  if (!r || !r.ok) { if (!отказ(r)) тост(r && r.error, true); return; }
+  let тревога = false;
+  const фарқ = (id, tile, v, зн) => {
+    const плохо = Math.abs(Number(v || 0)) >= 1; if (плохо) тревога = true;
+    $(id).textContent = деньги(v) + ' ' + зн; $(tile).className = 'tile ' + (плохо ? 'bad' : 'ok');
+  };
+  фарқ('vFarqR', 'tFarqR', r.farq_rub, '₽'); фарқ('vFarqU', 'tFarqU', r.farq_usd, '$');
+
+  const рж = r.rezhim || {};
+  const вБазу = РАЗДЕЛЫ.filter(([k]) => рж['wm_' + k] === 'sb').map(([, t]) => t);
+  $('sMode').innerHTML = рж.write_mode !== 'sb' ? 'всё через журнал'
+    : (вБазу.length ? 'в базу: ' + esc(вБазу.join(', ')) : 'общий включён, разделы — нет');
+  $('sPryamo').textContent = r.pryamo_segodnya ?? 0;
+  const ждут = Number(r.ne_na_liste || 0);
+  const старо = ждут && r.ne_na_liste_s && (Date.now() - new Date(r.ne_na_liste_s).getTime() > 15 * 60000);
+  if (старо) тревога = true;
+  $('sList').innerHTML = !ждут ? '<span class="pill p-ok">0</span>'
+    : '<span class="pill ' + (старо ? 'p-bad' : 'p-warn') + '">' + ждут + ' · с ' + esc(давно(r.ne_na_liste_s)) + '</span>';
+  $('sLast').textContent = давно(r.poslednyaya);
+  $('sToday').textContent = r.segodnya ?? '—';
+
+  const s = r.sverka || {};
+  $('zNe').textContent = (s.nomerov || 0) + ' ном. · ' + деньги(s.ne_vydano) + ' $';
+  $('zSt').textContent = (s.zayavok || 0) + ' заяв. · ' + деньги(s.po_statusu) + ' $';
+  const рас = Number(s.rashozhdenie || 0);
+  $('zRas').innerHTML = рас === 0 ? '<span class="pill p-ok">0</span>' : '<span class="pill p-warn">' + деньги(рас) + ' $</span>';
+  $('zVisit').innerHTML = s.status_visit ? '<span class="pill p-warn">' + s.status_visit + '</span>' : '0';
+  $('zZakr').innerHTML = s.zakryta_bez_vydachi ? '<span class="pill p-bad">' + s.zakryta_bez_vydachi + ' — смотреть глазами</span>' : '0';
+  if (s.zakryta_bez_vydachi) тревога = true;
+  $('zFix').classList.toggle('hide', !s.status_visit);
+  const д = r.dolgo || [];
+  $('cDolgo').classList.toggle('hide', !д.length);
+  $('dolgo').innerHTML = д.map(x => '<div class="line"><span>' + esc(x.nomer) + '</span><span class="r">' + деньги(x.dolg) +
+    ' $ · <span class="pill ' + (x.dney >= 7 ? 'p-bad' : 'p-warn') + '">' + x.dney + ' дн</span></span></div>').join('');
+  $('sLocked').innerHTML = r.zaperto ? '<span class="pill p-warn">' + r.zaperto + '</span>' : '0';
+  $('dotZd').classList.toggle('hide', !тревога);
+}
+$('btnFix').onclick = function () {
+  подтвердить(this, 'Точно выправить?', async () => {
+    const r = await rpc('zayavki_zakryt_adm', { p_token: ТОКЕН });
+    if (!r || !r.ok) { if (!отказ(r)) тост(r && r.error, true); return; }
+    тост('Выправлено: ' + r.n + '. Деньги не тронуты.'); здоровье();
+  });
+};
+
+// ================================================================
+//  ЛЮДИ
+// ================================================================
+let ЛЮДИ = [], РЕДАКТ = null, ГАЛКИ = [];
+async function люди() {
+  const r = await rpc('adm_users', { p_token: ТОКЕН });
+  if (!r || !r.ok) { if (!отказ(r)) тост(r && r.error, true); return; }
+  ЛЮДИ = r.users || [];
+  $('users').innerHTML = '<div class="mut small" style="margin-bottom:4px">Всего ' + ЛЮДИ.length +
+    ' · активных ' + ЛЮДИ.filter(u => u.active).length + '</div>' +
+    ЛЮДИ.map((u, i) => {
+      const пр = u.rights || [], н = какойНабор(пр);
+      const вер = !u.ver ? '<span class="pill p-mut">не входил</span>'
+        : (u.ver === НОВАЯ_ВЕРСИЯ || u.ver.indexOf('панель') === 0) ? '<span class="pill p-ok">' + esc(u.ver) + '</span>'
+        : '<span class="pill p-warn">' + esc(u.ver) + '</span>';
+      return '<div class="who' + (u.active ? '' : ' off') + '"><div class="row"><div class="sp">' +
+        '<div class="nm">' + esc(u.name || u.login) + ' <span class="pill ' + (пр.includes('admin') ? 'p-warn' : 'p-mut') + '">' +
+          esc(н ? НАБОРЫ[н][0] : 'свой набор') + '</span>' +
+          (u.locked ? ' <span class="pill p-bad">заперт</span>' : '') +
+          (u.has_pass ? '' : ' <span class="pill p-bad">нет пароля</span>') + '</div>' +
+        '<div class="meta">' + esc(u.login) + ' · был ' + давно(u.last_seen) + ' · ' + вер + '</div>' +
+        (н ? '' : '<div class="prava">' + пр.map(k => esc(ИМЯ_ПРАВА[k] || k)).join(' · ') + '</div>') +
+        '</div><button class="sec" data-e="' + i + '" style="padding:7px 11px">✎</button>' +
+        '<button class="tg' + (u.active ? ' on' : '') + '" data-a="' + i + '"></button></div>' +
+        (u.locked ? '<button class="sec wide" data-u="' + i + '" style="margin-top:8px">Снять блокировку</button>' : '') +
+        '</div>';
+    }).join('');
+  $('users').querySelectorAll('[data-e]').forEach(b => b.onclick = () => правка(ЛЮДИ[b.dataset.e]));
+  $('users').querySelectorAll('[data-a]').forEach(b => b.onclick = () => вклвыкл(b, ЛЮДИ[b.dataset.a]));
+  $('users').querySelectorAll('[data-u]').forEach(b => b.onclick = async () => {
+    const r = await rpc('adm_unlock', { p_login: ЛЮДИ[b.dataset.u].login, p_token: ТОКЕН });
+    if (r && r.ok) люди(); else if (!отказ(r)) тост(r && r.error, true);
+  });
+}
+function вклвыкл(btn, u) {
+  const сделать = async () => {
+    const r = await rpc('adm_user_active', { p_login: u.login, p_active: !u.active, p_token: ТОКЕН });
+    if (r && r.ok) { люди(); if (u.active) тост((u.name || u.login) + ' выключен. Вход в базу закрыт сразу.'); }
+    else if (!отказ(r)) тост(r && r.error, true);
+  };
+  if (u.active) { тост('Ещё раз — выключить ' + (u.name || u.login)); второеНажатие(btn, 'var(--bad)', сделать); }
+  else сделать();
+}
+$('fSet').innerHTML = Object.keys(НАБОРЫ).map(k => '<option value="' + k + '">' + НАБОРЫ[k][0] + '</option>').join('') +
+  '<option value="">Свой набор</option>';
+$('fSet').onchange = () => { const k = $('fSet').value; if (k) ГАЛКИ = НАБОРЫ[k][1].slice(); рисуйГалки(); };
+function рисуйГалки() {
+  const н = какойНабор(ГАЛКИ);
+  $('fSet').value = н || '';
+  $('fSetHint').textContent = н ? 'Можно поменять любую галочку — станет «свой набор».' : 'Галочки изменены вручную.';
+  $('fRights').innerHTML = ПРАВА.map(([г, сп]) => '<div class="grp">' + г + '</div><div class="chips">' +
+    сп.map(([k, t]) => '<button type="button" class="chip' + (ГАЛКИ.includes(k) ? ' on' : '') + '" data-r="' + k + '">' + t + '</button>').join('') +
+    '</div>').join('');
+  $('fRights').querySelectorAll('[data-r]').forEach(b => b.onclick = () => {
+    const k = b.dataset.r; ГАЛКИ = ГАЛКИ.includes(k) ? ГАЛКИ.filter(x => x !== k) : ГАЛКИ.concat(k); рисуйГалки();
+  });
+}
+$('btnNew').onclick = () => правка(null);
+$('btnCancel').onclick = () => $('fUser').classList.add('hide');
+function правка(u) {
+  РЕДАКТ = u;
+  $('fTitle').textContent = u ? 'Правка: ' + (u.name || u.login) : 'Новый человек';
+  $('fLogin').value = u ? u.login : ''; $('fLogin').readOnly = !!u;
+  $('fName').value = u ? (u.name || '') : '';
+  ГАЛКИ = u ? (u.rights || []).slice() : НАБОРЫ.operator[1].slice(); рисуйГалки();
+  $('fPass').value = ''; $('fPass2').value = ''; $('fMsg').textContent = '';
+  $('lPass').textContent = u ? (u.has_pass ? 'Новый пароль (пусто — не менять)' : 'Пароль — тот же, что в приложении') : 'Пароль';
+  $('hPass').textContent = u ? 'Смена пароля сразу закрывает его прежние входы в базу.' : 'Не короче шести знаков и не равен логину.';
+  $('btnKick').classList.toggle('hide', !u);
+  $('fUser').classList.remove('hide'); $('fUser').scrollIntoView({ behavior: 'smooth' });
+}
+$('btnSave').onclick = async () => {
+  const p1 = $('fPass').value, p2 = $('fPass2').value;
+  $('fMsg').className = 'err';
+  if (p1 !== p2) { $('fMsg').textContent = 'Пароли не совпали'; return; }
+  if ((!РЕДАКТ || !РЕДАКТ.has_pass) && !p1) { $('fMsg').textContent = 'Нужен пароль'; return; }
+  if (!ГАЛКИ.length) { $('fMsg').textContent = 'Ни одной галочки — он ничего не увидит'; return; }
+  const r = await rpc('adm_user_save', { p_login: $('fLogin').value.trim(), p_pass: p1,
+    p_name: $('fName').value.trim(), p_rights: ГАЛКИ, p_token: ТОКЕН });
+  if (!r || !r.ok) { if (!отказ(r)) $('fMsg').textContent = (r && r.error) || 'Ошибка'; return; }
+  $('fUser').classList.add('hide'); люди(); тост('Сохранено. Права действуют сразу.');
+};
+$('btnKick').onclick = function () {
+  подтвердить(this, 'Точно выкинуть?', async () => {
+    const r = await rpc('adm_kick', { p_login: РЕДАКТ.login, p_token: ТОКЕН });
+    if (!r || !r.ok) { if (!отказ(r)) тост(r && r.error, true); return; }
+    тост('Готово. Войдёт заново со своим паролем.');
+  });
+};
+
+// ================================================================
+//  ЛАЙКИ
+// ================================================================
+let ОПЕР = [];
+async function лайки() {
+  const r = await rpc('adm_operators_read', { p_token: ТОКЕН });
+  if (!r || !r.ok) { if (!отказ(r)) тост(r && r.error, true); return; }
+  ОПЕР = r.operators || [];
+  $('ops').innerHTML = ОПЕР.map((o, i) =>
+    '<div class="who' + (o.active ? '' : ' off') + '"><div class="row"><div class="sp">' +
+    '<div class="nm">' + esc(o.name) + (o.strok ? '' : ' <span class="pill p-warn">0 строк — опечатка?</span>') + '</div>' +
+    '<div class="meta">id ' + esc(o.user_id) + ' · строк в базе ' + (o.strok || 0) + (o.note ? ' · ' + esc(o.note) : '') + '</div></div>' +
+    '<button class="tg' + (o.active ? ' on' : '') + '" data-o="' + i + '"></button></div></div>').join('');
+  $('ops').querySelectorAll('[data-o]').forEach(b => b.onclick = async () => {
+    const o = ОПЕР[b.dataset.o];
+    const r = await rpc('adm_operator_set', { p_user_id: o.user_id, p_name: o.name, p_active: !o.active, p_note: null, p_token: ТОКЕН });
+    if (r && r.ok) лайки(); else if (!отказ(r)) тост(r && r.error, true);
+  });
+}
+$('btnOp').onclick = async () => {
+  const id = Number($('oId').value.trim()), nm = $('oName').value.trim();
+  $('oMsg').className = 'err'; $('oMsg').textContent = '';
+  if (!id) { $('oMsg').textContent = 'Нужен Telegram id числом'; return; }
+  const r = await rpc('adm_operator_set', { p_user_id: id, p_name: nm, p_active: true, p_note: 'добавлен из панели', p_token: ТОКЕН });
+  if (!r || !r.ok) { if (!отказ(r)) $('oMsg').textContent = (r && r.error) || 'Ошибка'; return; }
+  $('oId').value = ''; $('oName').value = '';
+  $('oMsg').className = 'okm'; $('oMsg').textContent = 'Добавлен. Бот увидит его в течение минуты.';
+  лайки();
+};
+
+// ================================================================
+//  ЗАПИСЬ
+// ================================================================
+const ГОТОВЫ = ['кос', 'д', 'мск'];   // остальные — после переноса УЗБ
+async function запись() {
+  const r = await rpc('cfg_read', {});
+  const общий = r && r.write_mode === 'sb';
+  $('wmMain').className = 'tg' + (общий ? ' on' : '');
+  $('wmMainHint').textContent = общий ? 'Включён: разделы ниже решают сами' : 'Выключен: всё идёт через журнал';
+  $('wmHint').textContent = общий ? 'Включённый раздел пишет прямо в базу.' : 'Пока общий выключен, разделы ничего не меняют — но их можно готовить заранее.';
+  $('wmActs').innerHTML = РАЗДЕЛЫ.map(([k, t]) => {
+    const вкл = r && r['wm_' + k] === 'sb', готов = ГОТОВЫ.includes(k);
+    return '<div class="sw"><div><b>' + t + '</b><div class="mut small">' +
+      (!готов ? 'позже — вместе с отправкой в группу' : вкл ? (общий ? 'пишет в базу' : 'готово, ждёт общего') : 'через журнал') + '</div></div>' +
+      '<button class="tg' + (вкл ? ' on' : '') + ((общий && готов) ? '' : ' dim') + '" data-k="' + k + '"' + (готов ? '' : ' disabled') + '></button></div>';
+  }).join('');
+  $('wmActs').querySelectorAll('[data-k]').forEach(b => b.onclick = () => щёлк(b, b.dataset.k));
+}
+$('wmMain').onclick = function () { щёлк(this, 'все'); };
+function щёлк(btn, действие) {
+  const в = btn.classList.contains('on') ? 'apps' : 'sb';
+  const пуск = async () => {
+    const r = await rpc('cfg_set_write_mode', { p_action: действие, p_mode: в, p_token: ТОКЕН });
+    if (r && r.ok) запись(); else if (!отказ(r)) тост(r && r.error, true);
+  };
+  if (в === 'apps') return пуск();                   // выключать — сразу, это тормоз
+  тост('Ещё раз — включить запись в базу'); второеНажатие(btn, 'var(--warn)', пуск);
+}
+
+// ================================================================
+//  ЖУРНАЛ
+// ================================================================
+async function журнал() {
+  const r = await rpc('adm_log_read', { p_token: ТОКЕН, p_limit: 100 });
+  if (!r || !r.ok) { if (!отказ(r)) тост(r && r.error, true); return; }
+  const л = r.log || [];
+  $('log').innerHTML = л.length ? л.map(x =>
+    '<div class="log"><div class="t">' + new Date(x.at).toLocaleString('ru-RU',
+      { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + ' · ' + esc(x.kto) + '</div>' +
+    '<div><b>' + esc(x.chto) + '</b>' + (x.kogo ? ' · ' + esc(x.kogo) : '') +
+    (x.bylo || x.stalo ? ' <span class="mut">(' + esc(x.bylo || '—') + ' → ' + esc(x.stalo || '—') + ')</span>' : '') +
+    '</div></div>').join('') : '<div class="mut">Пока пусто</div>';
+}
+
+// ================================================================
+//  ДЕМО — выдуманные люди и цифры, тексты ответов как у базы
+// ================================================================
+const мин = 6e4, час = 36e5, день = 864e5, Т = Date.now();
+const Д = {
+  промахи: 0, заперт: false,
+  люди: [
+    { login: 'admin',    name: 'Рустам',  rights: НАБОРЫ.admin[1],    active: true, last_seen: Т - мин,     ver: 'панель 1.1', has_pass: true },
+    { login: 'ahror',    name: 'Ахрор',   rights: НАБОРЫ.operator[1], active: true, last_seen: Т - 30 * мин, ver: 'R 2.1', has_pass: true },
+    { login: 'tohir',    name: 'Тохир',   rights: НАБОРЫ.operator[1], active: true, last_seen: Т - 2 * час,  ver: 'R 2.1', has_pass: true, locked: true },
+    { login: 'toshkent', name: 'Тошкент', rights: ['uzb','msk','kos','report','write','redate'], active: true, last_seen: Т - 5 * час, ver: 'R 2.0', has_pass: true },
+    { login: 'ahmad',    name: 'Ахмад',   rights: НАБОРЫ.operator[1], active: true, last_seen: null, ver: null, has_pass: false },
+    { login: 'kazok',    name: 'Казок',   rights: НАБОРЫ.kazok[1],    active: true, last_seen: null, ver: null, has_pass: true },
+    { login: 'apteka',   name: 'Аптека',  rights: НАБОРЫ.report[1],   active: true, last_seen: Т - 3 * день, ver: 'R 2.0', has_pass: true },
+    { login: 'staryi',   name: 'Старый оператор', rights: НАБОРЫ.operator[1], active: false, last_seen: Т - 60 * день, ver: 'R 1.4', has_pass: true }
+  ],
+  ops: [
+    { user_id: 5122769397, name: 'Казок',   active: true,  strok: 82,  note: 'Рустам' },
+    { user_id: 558794765,  name: 'Ахмад',   active: true,  strok: 48 },
+    { user_id: 5627192693, name: 'Ахрор',   active: true,  strok: 886 },
+    { user_id: 8194437267, name: 'Тошкент', active: true,  strok: 246 },
+    { user_id: 7696584364, name: 'Тохир',   active: true,  strok: 192 },
+    { user_id: 444316643,  name: 'Аптека',  active: true,  strok: 473 },
+    { user_id: 138298414,  name: 'Рустам',  active: false, strok: 0, note: 'аккаунта нет в группе' }
+  ],
+  wm: { write_mode: 'sb', 'wm_кос': 'sb', 'wm_д': 'apps', 'wm_мск': 'apps', 'wm_олдим': 'apps', 'wm_перевод': 'apps' },
+  log: [
+    { at: Т - 3 * час, kto: 'Рустам', chto: 'переключил запись', kogo: 'wm_кос', bylo: 'apps', stalo: 'sb' },
+    { at: Т - 4 * час, kto: 'Рустам', chto: 'изменил права', kogo: 'toshkent', bylo: 'operator', stalo: '+ redate, − d' },
+    { at: Т - день, kto: '(первый запуск)', chto: 'завёл первого админа', kogo: 'admin', bylo: null, stalo: 'admin' }
+  ]
+};
+function дЛог(chto, kogo, bylo, stalo) { Д.log.unshift({ at: Date.now(), kto: 'Рустам', chto, kogo, bylo, stalo }); }
+function демо(fn, a) {
+  const нет = () => a.p_token === 'демо-токен' ? null : { ok: false, error: 'Токен не подошёл' };
+  switch (fn) {
+    case 'login':
+      if (!a.p_login || !a.p_pass) return { ok: false, error: 'Укажи логин и пароль' };
+      if (Д.заперт) return { ok: false, error: 'Вход заперт, подожди 15 минут' };
+      if (a.p_login === 'admin' && a.p_pass === 'демо123') { Д.промахи = 0; return { ok: true, token: 'демо-токен', name: 'Рустам', rights: НАБОРЫ.admin[1] }; }
+      if (++Д.промахи >= 5) Д.заперт = true;
+      return { ok: false, error: 'Неверный логин или пароль' };
+    case 'adm_zdorovie':
+      return нет() || { ok: true, farq_rub: -0.02, farq_usd: 0,
+        sverka: { ne_vydano: 46588, nomerov: 11, po_statusu: 46588, zayavok: 11, rashozhdenie: 0, status_visit: 0, zakryta_bez_vydachi: 0 },
+        dolgo: [{ nomer: 'Смс 97', dolg: 300, dney: 9 }, { nomer: 'Смс 12', dolg: 100, dney: 6 }],
+        poslednyaya: new Date(Т - 4 * мин).toISOString(), segodnya: 37, rezhim: Д.wm,
+        zaperto: Д.люди.filter(u => u.locked).length, ne_na_liste: 2, ne_na_liste_s: new Date(Т - 3 * мин).toISOString(), pryamo_segodnya: 14 };
+    case 'zayavki_zakryt_adm': return нет() || { ok: true, n: 0 };
+    case 'adm_users':
+      return нет() || { ok: true, users: Д.люди.map(u => ({ ...u, last_seen: u.last_seen && new Date(u.last_seen).toISOString() })) };
+    case 'adm_user_active': {
+      if (нет()) return нет();
+      const u = Д.люди.find(x => x.login === a.p_login);
+      if (!a.p_active && u.login === 'admin') return { ok: false, error: 'Себя выключить нельзя' };
+      u.active = a.p_active; дЛог(a.p_active ? 'включил' : 'ВЫКЛЮЧИЛ', u.login, String(!a.p_active), String(a.p_active)); return { ok: true }; }
+    case 'adm_unlock': { if (нет()) return нет(); const u = Д.люди.find(x => x.login === a.p_login); if (u) u.locked = false; дЛог('снял блокировку', a.p_login); return { ok: true }; }
+    case 'adm_kick': if (нет()) return нет(); дЛог('выкинул со всех телефонов', a.p_login); return { ok: true };
+    case 'adm_user_save': {
+      if (нет()) return нет();
+      const lg = a.p_login, pw = a.p_pass;
+      if (!/^[A-Za-zА-Яа-яЁё0-9_.-]{2,32}$/.test(lg || '')) return { ok: false, error: 'Логин: 2–32 знака, без пробелов' };
+      if (!a.p_name) return { ok: false, error: 'Нужно имя — им подписываются операции' };
+      const чек = () => pw.length < 6 ? 'Пароль короче шести знаков' : pw.trim().toLowerCase() === lg.toLowerCase() ? 'Пароль не может совпадать с логином' : null;
+      let u = Д.люди.find(x => x.login === lg);
+      if (!u) { const б = чек(); if (б) return { ok: false, error: б };
+        Д.люди.push({ login: lg, name: a.p_name, rights: a.p_rights.slice(), active: true, has_pass: true });
+        дЛог('завёл человека', lg, null, a.p_rights.join(', ')); return { ok: true }; }
+      if (u.login === 'admin' && !a.p_rights.includes('admin')) return { ok: false, error: 'Себе галочку «Админ-панель» снять нельзя' };
+      if (pw) { const б = чек(); if (б) return { ok: false, error: б }; u.has_pass = true; дЛог('сменил пароль', lg, null, 'старые входы закрыты'); }
+      if (!равно(u.rights, a.p_rights)) дЛог('изменил права', lg, какойНабор(u.rights) || 'свой',
+        a.p_rights.filter(k => !u.rights.includes(k)).map(k => '+ ' + k).concat(u.rights.filter(k => !a.p_rights.includes(k)).map(k => '− ' + k)).join(', '));
+      u.rights = a.p_rights.slice(); u.name = a.p_name; return { ok: true }; }
+    case 'adm_operators_read': return нет() || { ok: true, operators: Д.ops };
+    case 'adm_operator_set': {
+      if (нет()) return нет();
+      if (!a.p_user_id || a.p_user_id <= 0) return { ok: false, error: 'Нужен Telegram id числом' };
+      if (!a.p_name || !a.p_name.trim()) return { ok: false, error: 'Нужно имя — на него ляжет выдача' };
+      let o = Д.ops.find(x => x.user_id === a.p_user_id);
+      if (o) { o.active = a.p_active; дЛог(a.p_active ? 'включил оператора лайков' : 'выключил оператора лайков', o.name); }
+      else { Д.ops.push({ user_id: a.p_user_id, name: a.p_name.trim(), active: true, strok: 0, note: a.p_note }); дЛог('добавил оператора лайков', a.p_name.trim(), null, String(a.p_user_id)); }
+      return { ok: true }; }
+    case 'cfg_read': return { ...Д.wm };
+    case 'cfg_set_write_mode': {
+      if (нет()) return нет();
+      const ключ = a.p_action === 'все' ? 'write_mode' : 'wm_' + a.p_action;
+      if (Д.wm[ключ] !== a.p_mode) дЛог('переключил запись', ключ, Д.wm[ключ], a.p_mode);
+      Д.wm[ключ] = a.p_mode; return { ok: true }; }
+    case 'adm_log_read': return нет() || { ok: true, log: Д.log.map(x => ({ ...x, at: new Date(x.at).toISOString() })) };
+  }
+  return { ok: false, error: 'В демо нет функции ' + fn };
+}
+if (ДЕМО) $('demoBar').classList.remove('hide');
+
+</script>
+</body>
+</html>
