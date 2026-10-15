@@ -244,9 +244,11 @@ button:disabled{opacity:.5;cursor:default}
 const ДЕМО = /[?&]demo=1\b/.test(location.search);
 const SB   = 'https://lyxxbonoycdsulralmfg.supabase.co';
 const KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx5eHhib25veWNkc3VscmFsbWZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgxNzcyNTAsImV4cCI6MjEwMzc1MzI1MH0.bHKwEj7z94RKlPGGFGn6vB6W3Nlu99-psz9wvFefRis';
-const ВЕРСИЯ = 'панель 1.4';
+const ВЕРСИЯ = 'панель 1.5';
 const ГРУППА = '3781241845';          // чат заявок (-100…) — для ссылок на сообщения
 const НОВАЯ_ВЕРСИЯ = 'R 2.1';          // с неё приложение пишет прямо в базу
+// 1.5: R 2.2 и дальше — тоже новые (раньше зелёным было только ровно R 2.1)
+const новая_ = v => { const m = /^R 2\.(\d+)/.exec(v || ''); return !!m && +m[1] >= 1; };
 // ================================================================
 
 let ТОКЕН = '';
@@ -475,7 +477,7 @@ async function день() {
   $('dnBot').innerHTML = (r.bot || []).map(x =>
     '<div class="log"><div class="t">' + время(x.at) + (x.message_id ? ' · <a href="https://t.me/c/' + ГРУППА + '/' + esc(x.message_id) + '" target="_blank" rel="noopener" style="color:var(--acc)">к сообщению</a>' : '') + '</div>' +
     '<div>' + esc(x.tekst).replace(/\n/g, '<br>') + '</div></div>').join('') || '<div class="mut">Сегодня бот не отказывал</div>';
-  $('dnOnline').innerHTML = (r.online || []).map(x => стр(esc(x.name), '<span class="pill ' + (x.ver === НОВАЯ_ВЕРСИЯ || String(x.ver).indexOf('панель') === 0 ? 'p-ok' : 'p-warn') + '">' + esc(x.ver || '—') + '</span> ' + давно(x.last_seen))).join('')
+  $('dnOnline').innerHTML = (r.online || []).map(x => стр(esc(x.name), '<span class="pill ' + (новая_(x.ver) || String(x.ver).indexOf('панель') === 0 ? 'p-ok' : 'p-warn') + '">' + esc(x.ver || '—') + '</span> ' + давно(x.last_seen))).join('')
     || '<div class="mut">За последние 10 минут — никого</div>';
 }
 function рисуйКрупные() {
@@ -556,7 +558,7 @@ async function люди() {
     ЛЮДИ.map((u, i) => {
       const пр = u.rights || [], н = какойНабор(пр);
       const вер = !u.ver ? '<span class="pill p-mut">не входил</span>'
-        : (u.ver === НОВАЯ_ВЕРСИЯ || u.ver.indexOf('панель') === 0) ? '<span class="pill p-ok">' + esc(u.ver) + '</span>'
+        : (новая_(u.ver) || u.ver.indexOf('панель') === 0) ? '<span class="pill p-ok">' + esc(u.ver) + '</span>'
         : '<span class="pill p-warn">' + esc(u.ver) + '</span>';
       return '<div class="who' + (u.active ? '' : ' off') + '"><div class="row"><div class="sp">' +
         '<div class="nm">' + esc(u.name || u.login) + ' <span class="pill ' + (пр.includes('admin') ? 'p-warn' : 'p-mut') + '">' +
