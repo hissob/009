@@ -150,8 +150,13 @@ button:disabled{opacity:.5;cursor:default}
     <div class="card"><h2>Правки и отмены</h2><div id="dnPravki"></div></div>
     <div class="card"><h2>Ответы бота в группе</h2><div id="dnBot"></div></div>
     <div class="card"><h2>Сейчас в приложении</h2><div id="dnOnline"></div></div>
-    <div class="card"><h2>Должники и кредиторы</h2>
+    <div class="card"><h2>Должники и кредиторы — все</h2>
       <div class="sel"><button class="sec" id="tvUsd">$</button><button class="sec" id="tvRub">₽</button></div>
+      <div style="display:flex;gap:8px;margin:8px 0">
+        <input id="tvPoisk" placeholder="Поиск по имени" style="flex:1;min-width:0">
+        <input id="tvDen" type="date" title="на конец дня (пусто — сейчас)" style="width:150px">
+      </div>
+      <div id="dnTopItog"></div>
       <div id="dnTop"></div></div>
     <button class="wide sec" id="btnDn">Обновить</button>
   </div>
@@ -239,7 +244,7 @@ button:disabled{opacity:.5;cursor:default}
 const ДЕМО = /[?&]demo=1\b/.test(location.search);
 const SB   = 'https://lyxxbonoycdsulralmfg.supabase.co';
 const KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx5eHhib25veWNkc3VscmFsbWZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgxNzcyNTAsImV4cCI6MjEwMzc1MzI1MH0.bHKwEj7z94RKlPGGFGn6vB6W3Nlu99-psz9wvFefRis';
-const ВЕРСИЯ = 'панель 1.3';
+const ВЕРСИЯ = 'панель 1.4';
 const ГРУППА = '3781241845';          // чат заявок (-100…) — для ссылок на сообщения
 const НОВАЯ_ВЕРСИЯ = 'R 2.1';          // с неё приложение пишет прямо в базу
 // ================================================================
@@ -436,8 +441,10 @@ const пш = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
 $('krUsd').value = чт('k9_krUsd', '5000'); $('krRub').value = чт('k9_krRub', '500000');
 $('krUsd').oninput = () => { пш('k9_krUsd', $('krUsd').value); рисуйКрупные(); };
 $('krRub').oninput = () => { пш('k9_krRub', $('krRub').value); рисуйКрупные(); };
-$('tvUsd').onclick = () => { ТОП = 'usd'; рисуйТоп(); };
-$('tvRub').onclick = () => { ТОП = 'rub'; рисуйТоп(); };
+$('tvUsd').onclick = () => { ТОП = 'usd'; списокГрузи(); };
+$('tvRub').onclick = () => { ТОП = 'rub'; списокГрузи(); };
+$('tvPoisk').oninput = () => рисуйТоп();
+$('tvDen').onchange = () => списокГрузи();
 $('btnDn').onclick = () => день();
 const стр = (л, п) => '<div class="line"><span>' + л + '</span><span class="r">' + п + '</span></div>';
 const время = iso => new Date(iso).toLocaleString('ru-RU', { hour: '2-digit', minute: '2-digit' });
@@ -460,7 +467,7 @@ async function день() {
   $('dnSklad').innerHTML = (r.sklad || []).map(s =>
     стр(esc(s.pot), деньги(s.usd) + ' $' + (s.kurs ? ' · курс ' + деньги(s.kurs) : '') +
         '<div class="small mut">прибыль в партиях ' + деньги(s.pribyl) + ' ₽</div>')).join('');
-  рисуйКрупные(); рисуйТоп();
+  рисуйКрупные(); рисуйТоп(); списокГрузи();
   $('dnPravki').innerHTML = (r.pravki || []).map(x =>
     '<div class="log"><div class="t">' + время(x.at) + ' · ' + esc(x.kto || '?') + '</div><div><b>' + esc(x.chto) + '</b> · ' + esc(x.kogo || '') +
     (x.bylo || x.stalo ? ' <span class="mut">(' + esc(x.bylo || '—') + (x.stalo ? ' → ' + esc(x.stalo) : '') + ')</span>' : '') + '</div></div>').join('')
@@ -478,12 +485,44 @@ function рисуйКрупные() {
   const мап = (x, зн) => стр(время(x.at) + ' · ' + esc(x.action) + ' · ' + esc(x.name), '<b>' + деньги(x.summa) + ' ' + зн + '</b><div class="small mut">' + esc(x.operator || '') + '</div>');
   $('dnKrup').innerHTML = (u.map(x => мап(x, '$')).join('') + р.map(x => мап(x, '₽')).join('')) || '<div class="mut">Выше порога сегодня нет</div>';
 }
+// Весь список (1.4): база отдаёт всех клиентов с остатком — balans_na,
+// та же функция, что «баланс на дату» в приложении. Без даты — сейчас.
+// Нет правки 32 — падаем на прежние «первые 10» из adm_den.
+let СПИСОК = null, СПИСОК_ЗАПРОС = 0;
+async function списокГрузи() {
+  $('tvUsd').className = ТОП === 'usd' ? '' : 'sec'; $('tvRub').className = ТОП === 'rub' ? '' : 'sec';
+  const мой = ++СПИСОК_ЗАПРОС;
+  const день = $('tvDen').value || new Date(Date.now() + 3 * 36e5).toISOString().slice(0, 10);
+  $('dnTopItog').innerHTML = '<div class="mut">Считаю…</div>';
+  const r = await rpc('balans_na', { p_den: день, p_kontur: ТОП });
+  if (мой !== СПИСОК_ЗАПРОС) return;
+  СПИСОК = (r && r.ok) ? { контур: ТОП, день: $('tvDen').value, r: r } : null;
+  рисуйТоп();
+}
 function рисуйТоп() {
-  if (!ДЕНЬ) return;
-  const т = ТОП === 'usd' ? ДЕНЬ.top_usd : ДЕНЬ.top_rub, зн = ТОП === 'usd' ? '$' : '₽';
+  const зн = ТОП === 'usd' ? '$' : '₽';
   $('tvUsd').className = ТОП === 'usd' ? '' : 'sec'; $('tvRub').className = ТОП === 'rub' ? '' : 'sec';
   const сп = (a) => (a || []).map(x => стр(esc(x.name), деньги(x.summa) + ' ' + зн)).join('') || '<div class="mut">—</div>';
-  $('dnTop').innerHTML = '<div class="grp">Должны нам</div>' + сп(т && т.dolzhny) + '<div class="grp">Мы должны</div>' + сп(т && т.dolzhny_my);
+  if (!СПИСОК || СПИСОК.контур !== ТОП) {
+    if (!ДЕНЬ) { $('dnTopItog').innerHTML = ''; return; }
+    const т = ТОП === 'usd' ? ДЕНЬ.top_usd : ДЕНЬ.top_rub;
+    $('dnTopItog').innerHTML = '<div class="small mut">Первые 10 — полный список появится после правки 32</div>';
+    $('dnTop').innerHTML = '<div class="grp">Должны нам</div>' + сп(т && т.dolzhny) + '<div class="grp">Мы должны</div>' + сп(т && т.dolzhny_my);
+    return;
+  }
+  const q = ($('tvPoisk').value || '').trim().toLowerCase();
+  // В долларах «Смс N» — заявки, а не люди: их считает «Здоровье».
+  const все = (СПИСОК.r.klienty || []).filter(x => Math.abs(x.summa) >= 0.5 && !(ТОП === 'usd' && /^Смс \d/.test(x.name)));
+  const видно = все.filter(x => !q || x.name.toLowerCase().indexOf(q) !== -1);
+  const нам = видно.filter(x => x.summa < 0).sort((a, b) => a.summa - b.summa);
+  const мы  = видно.filter(x => x.summa > 0).sort((a, b) => b.summa - a.summa);
+  const сум = a => a.reduce((s, x) => s + Number(x.summa), 0);
+  $('dnTopItog').innerHTML =
+    стр('Должны нам · ' + нам.length, '<b>' + деньги(-сум(нам)) + ' ' + зн + '</b>') +
+    стр('Мы должны · ' + мы.length, '<b>' + деньги(сум(мы)) + ' ' + зн + '</b>') +
+    (СПИСОК.день ? '<div class="small mut">на конец ' + СПИСОК.день.split('-').reverse().join('.') + '</div>' : '') +
+    (q ? '<div class="small mut">найдено ' + видно.length + ' из ' + все.length + '</div>' : '');
+  $('dnTop').innerHTML = '<div class="grp">Должны нам</div>' + сп(нам) + '<div class="grp">Мы должны</div>' + сп(мы);
 }
 
 // ================================================================
@@ -724,6 +763,10 @@ function демо(fn, a) {
         poslednyaya: new Date(Т - 4 * мин).toISOString(), segodnya: 37, rezhim: Д.wm,
         zaperto: Д.люди.filter(u => u.locked).length, ne_na_liste: 2, ne_na_liste_s: new Date(Т - 3 * мин).toISOString(), pryamo_segodnya: 14 };
     case 'zayavki_zakryt_adm': return нет() || { ok: true, n: 0 };
+    case 'balans_na': return { ok: true, den: a.p_den, kontur: a.p_kontur,
+        klienty: a.p_kontur === 'usd'
+          ? [{ name: 'Мухсинхон', summa: -16850 }, { name: 'Абдурасул', summa: -5400 }, { name: 'Ахрор', summa: -1200 }, { name: 'Аптека', summa: 3200 }, { name: 'Смс 43', summa: 16500 }]
+          : [{ name: 'Илхом ака', summa: 1222500 }, { name: 'Нахт офис', summa: -380000 }, { name: 'Хамидулло', summa: -95000 }, { name: 'Фаррух', summa: 41000 }] };
     case 'adm_den': return нет() || { ok: true,
         segodnya: { perevodov: 9, perevodov_usd: 38450, vydach: 7, vydano_usd: 21900, oldim: 3, oldim_usd: 15200, per_usd: 12, per_rub: 5,
                     msk_prishlo_rub: 1850000, msk_ushlo_rub: 920000, obmen: 1, obmen_usd: 2000 }, otmen_segodnya: 1,
